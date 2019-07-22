@@ -1,18 +1,12 @@
-import org.apache.http.client.methods.HttpGet;
-
 import java.io.IOException;
+import java.net.URISyntaxException;
 
 public class Main {
-    public static void main(String[] args) throws IOException {
-
-        HttpGet request = new HttpGet("https://yandex.ru/");
+    public static void main(String[] args) throws IOException, URISyntaxException {
 
         PageDownloader pageDownloader = new PageDownloader();
 
-        SimpleHttpGet simpleHttpGet = new SimpleHttpGet();
-
-        pageDownloader.writeToFile(simpleHttpGet, request);
-
+        pageDownloader.download("https://yandex.ru/");
 
     }
 

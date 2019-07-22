@@ -5,10 +5,13 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,6 +28,10 @@ public class PageDownloader {
 
         Document doc = getPage(url);
         savePage(doc);
+
+        saveImages(getImgByTag(doc));
+
+
         List<String> listOfLinks = getLinksByTag(doc);
 
         for (String link : listOfLinks) {
@@ -51,9 +58,10 @@ public class PageDownloader {
         }
     }
 
-    public void saveImages(Document document) {
-
-
+    public void saveImages(List<String> listOfLinks) throws IOException {
+        for (String link : listOfLinks) {
+           saveImage(link);
+        }
     }
 
     private List<String> getLinksByTag(Document doc) {
@@ -74,4 +82,40 @@ public class PageDownloader {
 
         return listOfLinks;
     }
+
+    public List<String> getImgByTag(Document doc) {
+
+        ArrayList<String> listOfLinks = new ArrayList<String>();
+
+        Elements listNews = doc.getElementsByTag("img");
+
+        for (Element link : listNews) {
+            listOfLinks.add(link.attributes().get("src"));
+        }
+
+        for (String link : listOfLinks) {
+            if (link.startsWith("//")) {
+                Collections.replaceAll(listOfLinks, link, uri.getScheme() + ":" + link);
+            }
+        }
+        return listOfLinks;
+    }
+
+    public static void saveImage(String imageUrl) throws IOException {
+
+        String imgName = folderPath + imageUrl.substring(imageUrl.lastIndexOf("/"));
+
+        try (BufferedInputStream in = new BufferedInputStream(new URL(imageUrl).openStream());
+             FileOutputStream fileOutputStream = new FileOutputStream(imgName)) {
+            byte dataBuffer[] = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = in.read(dataBuffer, 0, 1024)) != -1) {
+                fileOutputStream.write(dataBuffer, 0, bytesRead);
+            }
+        } catch (IOException e) {
+            // handle exception
+        }
+    }
+
+
 }

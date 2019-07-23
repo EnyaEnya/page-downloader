@@ -29,16 +29,10 @@ public class PageDownloader {
         Document doc = getPage(url);
         savePage(doc);
 
-        saveImages(getImgByTag(doc));
+        savePages(getSourcesByTag(doc, "a", "href"));
+        saveImages(getSourcesByTag(doc, "img", "src"));
 
 
-        List<String> listOfLinks = getLinksByTag(doc);
-
-        for (String link : listOfLinks) {
-            Document newDoc = getPage(link);
-            savePage(newDoc);
-            System.out.println(link + " saved!");
-        }
     }
 
     private Document getPage(String url) throws IOException {
@@ -46,6 +40,14 @@ public class PageDownloader {
                 .userAgent("Chrome/4.0.249.0 Safari/532.5")
                 .referrer("http://www.google.com")
                 .get();
+    }
+
+    private void savePages(List<String> listOfLinks) throws IOException {
+        for (String link : listOfLinks) {
+            Document newDoc = getPage(link);
+            savePage(newDoc);
+            System.out.println(link + " saved!");
+        }
     }
 
     private void savePage(Document document) {
@@ -58,47 +60,28 @@ public class PageDownloader {
         }
     }
 
+    public List<String> getSourcesByTag(Document doc, String tagName, String attribute) {
+
+        ArrayList<String> listOfLinks = new ArrayList<String>();
+
+        Elements listNews = doc.getElementsByTag(tagName);
+
+        for (Element link : listNews) {
+            listOfLinks.add(link.attributes().get(attribute));
+        }
+
+        for (String link : listOfLinks) {
+            if (link.startsWith("//")) {
+                Collections.replaceAll(listOfLinks, link, uri.getScheme() + ":" + link);
+            }
+        }
+        return listOfLinks;
+    }
+
     public void saveImages(List<String> listOfLinks) throws IOException {
         for (String link : listOfLinks) {
-           saveImage(link);
+            saveImage(link);
         }
-    }
-
-    private List<String> getLinksByTag(Document doc) {
-
-        ArrayList<String> listOfLinks = new ArrayList<String>();
-
-        Elements listNews = doc.getElementsByTag("a");
-
-        for (Element link : listNews) {
-            listOfLinks.add(link.attributes().get("href"));
-        }
-
-        for (String link : listOfLinks) {
-            if (link.startsWith("//")) {
-                Collections.replaceAll(listOfLinks, link, uri.getScheme() + ":" + link);
-            }
-        }
-
-        return listOfLinks;
-    }
-
-    public List<String> getImgByTag(Document doc) {
-
-        ArrayList<String> listOfLinks = new ArrayList<String>();
-
-        Elements listNews = doc.getElementsByTag("img");
-
-        for (Element link : listNews) {
-            listOfLinks.add(link.attributes().get("src"));
-        }
-
-        for (String link : listOfLinks) {
-            if (link.startsWith("//")) {
-                Collections.replaceAll(listOfLinks, link, uri.getScheme() + ":" + link);
-            }
-        }
-        return listOfLinks;
     }
 
     public static void saveImage(String imageUrl) throws IOException {

@@ -31,7 +31,8 @@ public class PageDownloader {
 
         savePages(getSourcesByTag(doc, "a", "href"));
         saveImages(getSourcesByTag(doc, "img", "src"));
-
+        saveDownloadableContent(getSourcesByTag(doc, "link", "href"));
+        saveDownloadableContent(getSourcesByTag(doc, "script", "src"));
 
     }
 
@@ -60,14 +61,17 @@ public class PageDownloader {
         }
     }
 
-    public List<String> getSourcesByTag(Document doc, String tagName, String attribute) {
+    private List<String> getSourcesByTag(Document doc, String tagName, String attribute) {
 
         ArrayList<String> listOfLinks = new ArrayList<String>();
 
         Elements listNews = doc.getElementsByTag(tagName);
 
         for (Element link : listNews) {
-            listOfLinks.add(link.attributes().get(attribute));
+            String attr = link.attributes().get(attribute);
+            if (!"".equals(attr)) {
+                listOfLinks.add(attr);
+            }
         }
 
         for (String link : listOfLinks) {
@@ -80,17 +84,23 @@ public class PageDownloader {
 
     public void saveImages(List<String> listOfLinks) throws IOException {
         for (String link : listOfLinks) {
-            saveImage(link);
+            saveContent(link);
         }
     }
 
-    public static void saveImage(String imageUrl) throws IOException {
+    public void saveDownloadableContent(List<String> listOfLinks) throws IOException {
+        for (String link : listOfLinks) {
+            saveContent(link);
+        }
+    }
 
-        String imgName = folderPath + imageUrl.substring(imageUrl.lastIndexOf("/"));
+    public void saveContent(String contentUrl) throws IOException {
 
-        try (BufferedInputStream in = new BufferedInputStream(new URL(imageUrl).openStream());
+        String imgName = folderPath + contentUrl.substring(contentUrl.lastIndexOf("/"));
+
+        try (BufferedInputStream in = new BufferedInputStream(new URL(contentUrl).openStream());
              FileOutputStream fileOutputStream = new FileOutputStream(imgName)) {
-            byte dataBuffer[] = new byte[1024];
+            byte[] dataBuffer = new byte[1024];
             int bytesRead;
             while ((bytesRead = in.read(dataBuffer, 0, 1024)) != -1) {
                 fileOutputStream.write(dataBuffer, 0, bytesRead);
@@ -99,6 +109,5 @@ public class PageDownloader {
             // handle exception
         }
     }
-
 
 }

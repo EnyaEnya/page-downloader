@@ -13,9 +13,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class PageDownloader {
 
@@ -29,10 +27,10 @@ public class PageDownloader {
         Document doc = getPage(url);
         savePage(doc);
 
-        savePages(getSourcesByTag(doc, "a", "href"));
-        saveImages(getSourcesByTag(doc, "img", "src"));
-        saveDownloadableContent(getSourcesByTag(doc, "link", "href"));
-        saveDownloadableContent(getSourcesByTag(doc, "script", "src"));
+        savePages(formUrlList(getSourcesByTag(doc, "a", "href")));
+        saveImages(formUrlList(getSourcesByTag(doc, "img", "src")));
+        saveDownloadableContent(formUrlList(getSourcesByTag(doc, "link", "href")));
+        saveDownloadableContent(formUrlList(getSourcesByTag(doc, "script", "src")));
 
     }
 
@@ -43,12 +41,24 @@ public class PageDownloader {
                 .get();
     }
 
-    private void savePages(List<String> listOfLinks) throws IOException {
-        for (String link : listOfLinks) {
-            Document newDoc = getPage(link);
+    private void savePages(HashMap<String, Boolean> listOfLinks) throws IOException {
+        for (Map.Entry<String, Boolean> entry : listOfLinks.entrySet()) {
+            String k = entry.getKey();
+            Boolean v = entry.getValue();
+            Document newDoc = null;
+            try {
+                newDoc = getPage(k);
+                v = true;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            setNewLink(newDoc, "a" ,"href");
+            setNewLink(newDoc, "img", "src"); //SSLHandshakeException: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
+            setNewLink(newDoc, "link", "href");
+            setNewLink(newDoc, "script", "src");
             savePage(newDoc);
-            System.out.println(link + " saved!");
         }
+
     }
 
     private void savePage(Document document) {
@@ -82,19 +92,27 @@ public class PageDownloader {
         return listOfLinks;
     }
 
-    public void saveImages(List<String> listOfLinks) throws IOException {
-        for (String link : listOfLinks) {
-            saveContent(link);
-        }
+    public void saveImages(HashMap<String, Boolean> listOfLinks) throws IOException {
+        listOfLinks.forEach((k, v) -> {
+            try {
+                saveContent(k);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
-    public void saveDownloadableContent(List<String> listOfLinks) throws IOException {
-        for (String link : listOfLinks) {
-            saveContent(link);
-        }
+    public void saveDownloadableContent(HashMap<String, Boolean> listOfLinks) throws IOException {
+        listOfLinks.forEach((k, v) -> {
+            try {
+                saveContent(k);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
-    public void saveContent(String contentUrl) throws IOException {
+    private void saveContent(String contentUrl) throws IOException {
 
         String imgName = folderPath + contentUrl.substring(contentUrl.lastIndexOf("/"));
 
@@ -108,6 +126,30 @@ public class PageDownloader {
         } catch (IOException e) {
             // handle exception
         }
+    }
+
+    private void formElement(Document doc) {
+        Elements div1 = doc.getElementsByAttribute("href");
+    }
+
+    private void setNewLink(Document doc, String tag, String attr) {
+        String newUrl = "/var/www/downloadedPage/";
+        Elements elements = doc.getElementsByTag(tag);
+
+        for (Element link : elements) {
+           link.attributes().put(attr, newUrl);
+        }
+
+    }
+
+    private HashMap<String, Boolean> formUrlList(List<String> urlList) {
+        HashMap<String, Boolean> listOfUrl = new HashMap<>();
+        for (String url : urlList) {
+            if (!listOfUrl.containsKey(url)) {
+                listOfUrl.put(url, false);
+            }
+        }
+        return listOfUrl;
     }
 
 }

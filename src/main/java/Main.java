@@ -1,5 +1,4 @@
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 
 public class Main {
@@ -7,7 +6,7 @@ public class Main {
 
         PageDownloader pageDownloader = new PageDownloader();
 
-        pageDownloader.download("https://yandex.ru/");
+        pageDownloader.download("https://news.vtomske.ru/");
 
 
     }

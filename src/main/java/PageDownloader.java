@@ -1,4 +1,3 @@
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -9,147 +8,99 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.charset.Charset;
-import java.util.*;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.Set;
 
 public class PageDownloader {
 
     private static final String folderPath = "/var/www/downloadedPage/";
     private URI uri;
+    private Set<String> urls = new HashSet<>();
 
     public void download(String url) throws IOException, URISyntaxException {
 
         uri = new URI(url);
 
         Document doc = getPage(url);
-        savePage(doc);
 
-        savePages(formUrlList(getSourcesByTag(doc, "a", "href")));
-        saveImages(formUrlList(getSourcesByTag(doc, "img", "src")));
-        saveDownloadableContent(formUrlList(getSourcesByTag(doc, "link", "href")));
-        saveDownloadableContent(formUrlList(getSourcesByTag(doc, "script", "src")));
+        saveSourcesByTag(doc, "img", "src");
+        saveSourcesByTag(doc, "link", "href");
+        saveSourcesByTag(doc, "script", "src");
+        savePage(doc);
 
     }
 
     private Document getPage(String url) throws IOException {
+
         return Jsoup.connect(url)
                 .userAgent("Chrome/4.0.249.0 Safari/532.5")
-                .referrer("http://www.google.com")
                 .get();
     }
 
-    private void savePages(HashMap<String, Boolean> listOfLinks) throws IOException {
-        for (Map.Entry<String, Boolean> entry : listOfLinks.entrySet()) {
-            String k = entry.getKey();
-            Boolean v = entry.getValue();
-            Document newDoc = null;
-            try {
-                newDoc = getPage(k);
-                v = true;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            setNewLink(newDoc, "a" ,"href");
-            setNewLink(newDoc, "img", "src"); //SSLHandshakeException: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target
-            setNewLink(newDoc, "link", "href");
-            setNewLink(newDoc, "script", "src");
-            savePage(newDoc);
-        }
-
-    }
 
     private void savePage(Document document) {
-        File file = new File(folderPath + DigestUtils.sha256Hex(document.title()) + ".html");
+        File file = new File(folderPath + URLEncoder.encode(document.baseUri().replace("/", "").replace(":", ""), StandardCharsets.UTF_8) + ".html");
         try {
             FileUtils.touch(file);
-            FileUtils.writeStringToFile(file, document.toString(), Charset.forName("UTF-8"));
+            FileUtils.writeStringToFile(file, document.toString(), StandardCharsets.UTF_8);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private List<String> getSourcesByTag(Document doc, String tagName, String attribute) {
+    private void saveSourcesByTag(Document doc, String tagName, String attribute) {
 
-        ArrayList<String> listOfLinks = new ArrayList<String>();
+        Elements elements = doc.getElementsByTag(tagName);
 
-        Elements listNews = doc.getElementsByTag(tagName);
-
-        for (Element link : listNews) {
-            String attr = link.attributes().get(attribute);
-            if (!"".equals(attr)) {
-                listOfLinks.add(attr);
+        for (Element element : elements) {
+            String link = element.attributes().get(attribute);
+            if ("".equals(link)) {
+                continue;
             }
-        }
-
-        for (String link : listOfLinks) {
+            if ("canonical".equals(element.attributes().get("rel"))) {
+                continue;
+            }
             if (link.startsWith("//")) {
-                Collections.replaceAll(listOfLinks, link, uri.getScheme() + ":" + link);
+                link = uri.getScheme() + ":" + link;
             }
+            if (link.startsWith("/")) {
+                link = uri.getScheme() + "://" + uri.getHost() + link;
+            }
+            if (urls.contains(link)) {
+                continue;
+            }
+            urls.add(link);
+            String newUrl = saveContent(URLEncoder.encode(doc.baseUri().replace("/", "").replace(":", ""), StandardCharsets.UTF_8), link);
+            element.attributes().put(attribute, newUrl);
         }
-        return listOfLinks;
+
     }
 
-    public void saveImages(HashMap<String, Boolean> listOfLinks) throws IOException {
-        listOfLinks.forEach((k, v) -> {
-            try {
-                saveContent(k);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        });
-    }
 
-    public void saveDownloadableContent(HashMap<String, Boolean> listOfLinks) throws IOException {
-        listOfLinks.forEach((k, v) -> {
-            try {
-                saveContent(k);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        });
-    }
-
-    private void saveContent(String contentUrl) throws IOException {
-
-        String imgName = folderPath + contentUrl.substring(contentUrl.lastIndexOf("/"));
+    private String saveContent(String folder, String contentUrl) {
+        String contentPath = folder + "/" + contentUrl.substring(contentUrl.lastIndexOf("/"));
+        contentPath = contentPath.split("\\?")[0];
+        String imgName = folderPath + contentPath;
+        File file = new File(imgName);
+        try {
+            FileUtils.touch(file);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         try (BufferedInputStream in = new BufferedInputStream(new URL(contentUrl).openStream());
-             FileOutputStream fileOutputStream = new FileOutputStream(imgName)) {
+             FileOutputStream fileOutputStream = new FileOutputStream(file)) {
             byte[] dataBuffer = new byte[1024];
             int bytesRead;
             while ((bytesRead = in.read(dataBuffer, 0, 1024)) != -1) {
                 fileOutputStream.write(dataBuffer, 0, bytesRead);
             }
         } catch (IOException e) {
-            // handle exception
+            e.printStackTrace();
         }
-    }
-
-    private void formElement(Document doc) {
-        Elements div1 = doc.getElementsByAttribute("href");
-    }
-
-    private void setNewLink(Document doc, String tag, String attr) {
-        String newUrl = "/var/www/downloadedPage/";
-        Elements elements = doc.getElementsByTag(tag);
-
-        for (Element link : elements) {
-           link.attributes().put(attr, newUrl);
-        }
-
-    }
-
-    private HashMap<String, Boolean> formUrlList(List<String> urlList) {
-        HashMap<String, Boolean> listOfUrl = new HashMap<>();
-        for (String url : urlList) {
-            if (!listOfUrl.containsKey(url)) {
-                listOfUrl.put(url, false);
-            }
-        }
-        return listOfUrl;
+        return "./" + contentPath;
     }
 
 }
